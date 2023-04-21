@@ -1,9 +1,10 @@
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.generics import get_object_or_404
 
-from .models import Movie, Actor
-from .serializers import MovieSerializer, ActorSerializer
+from .models import Movie, Actor, Review
+from .serializers import MovieSerializer, ActorSerializer, ReviewSerializer
 
 
 @api_view(['GET', 'POST'])
@@ -28,6 +29,31 @@ def movie_list(request):
     return Response(status=status.HTTP_400_BAD_REQUEST)
 
 
+@api_view(['GET', 'PATCH', 'DELETE'])
+def movie_detail(request, pk):
+    # pk에 해당하는 Movie 객체를 가져옵니다.
+    movie = get_object_or_404(Movie, pk=pk)
+    # request.method에 따라 다른 처리를 합니다.
+    if request.method == 'GET':
+        # MovieSerializer를 통해 Movie 객체를 JSON으로 변환합니다.
+        # 하나의 객체를 변환할 때는 many=True 옵션을 주지 않습니다.
+        serializer = MovieSerializer(movie)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    elif request.method == 'PATCH':
+        # PATCH는 부분 데이터 수정이기 때문에 partial 옵션을 True로 설정합니다.
+        # PUT일 경우, 모든 데이터를 수정, partial=False
+        serializer = MovieSerializer(movie, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        # 유효성 검사를 통과하지 못했을 때
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    elif request.method == 'DELETE':
+        movie.delete()
+        # 데이터가 삭제되면 반환할 데이터가 없기 때문에 상태 코드인 204만 반환
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 @api_view(['GET', 'POST'])
 def actor_list(request):
     # GET 요청이 들어왔을 때
@@ -48,3 +74,50 @@ def actor_list(request):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     return Response(status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PATCH', 'DELETE'])
+def actor_detail(request, pk):
+    # pk에 해당하는 Actor 객체를 가져옵니다.
+    actor = get_object_or_404(Actor, pk=pk)
+    # request.method에 따라 다른 처리를 합니다.
+    if request.method == 'GET':
+        # ActorSerializer를 통해 Actor 객체를 JSON으로 변환합니다.
+        # 하나의 객체를 변환할 때는 many=False 옵션을 주지 않습니다.
+        serializer = ActorSerializer(actor)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    elif request.method == 'PATCH':
+        # PATCH는 부분 데이터 수정이기 때문에 partial 옵션을 True로 설정합니다.
+        # PUT일 경우, 모든 데이터를 수정, partial=False
+        serializer = ActorSerializer(actor, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        # 유효성 검사를 통과하지 못했을 때
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    elif request.method == 'DELETE':
+        actor.delete()
+        # 데이터가 삭제되면 반환할 데이터가 없기 때문에 상태 코드인 204만 반환
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['GET', 'POST'])
+def review_list(request, pk):
+    # 영화 객체 가져오기
+    movie = get_object_or_404(Movie, pk=pk)
+
+    if request.method == 'GET':
+        # GET 요청일 경우, 해당 영화의 리뷰들을 가져와서 시리얼라이저를 통해 응답
+        reviews = Review.objects.filter(movie=movie)
+        serializer = ReviewSerializer(reviews, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+    elif request.method == 'POST':
+        # POST 요청일 경우, 전달된 데이터를 시리얼라이저를 통해 검증하고 저장
+        serializer = ReviewSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save(movie=movie)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# python manage.py runserver
